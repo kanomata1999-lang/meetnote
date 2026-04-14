@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MeetNote – 録音議事録アプリ</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #4F7EF7;
+      --primary-dark: #3B6DE8;
+      --primary-light: #EEF2FF;
+      --success: #22C55E;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --bg: #F4F6FB;
+      --card: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --radius: 16px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── LAYOUT ── */
+    .app-shell {
+      width: 100%;
+      max-width: 600px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -0.3px;
+    }
+    .logo svg { width: 30px; height: 30px; }
+    .header-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: background 0.15s;
+    }
+    .icon-btn:hover { background: var(--bg); }
+
+    /* ── CONTENT ── */
+    .content { padding: 18px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    /* ── CARDS ── */
+    .card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .card-header .card-label { margin-bottom: 0; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 12px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      width: 100%;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: #E8EDF5; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #16A34A; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ── RECORD BUTTON ── */
+    .record-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 0 20px;
+    }
+    .record-btn {
+      width: 96px; height: 96px;
+      border-radius: 50%;
+      border: 4px solid var(--primary);
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      box-shadow: 0 0 0 0 rgba(79,126,247,0.3);
+    }
+    .record-btn.rec {
+      border-color: var(--danger);
+      animation: pulse-red 1.8s infinite;
+    }
+    @keyframes pulse-red {
+      0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      70%  { box-shadow: 0 0 0 18px rgba(239,68,68,0); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .record-dot {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--primary);
+      transition: all 0.3s;
+    }
+    .record-btn.rec .record-dot {
+      border-radius: 7px;
+      background: var(--danger);
+      width: 30px; height: 30px;
+    }
+    .record-label {
+      margin-top: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .record-timer {
+      margin-top: 4px;
+      font-size: 30px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+    }
+    .record-timer.rec { color: var(--danger); }
+
+    /* ── LIVE TRANSCRIPT ── */
+    .live-box {
+      min-height: 80px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 10px;
+      font-size: 15px;
+      line-height: 1.75;
+      white-space: pre-wrap;
+    }
+    .interim { color: var(--text-muted); font-style: italic; }
+
+    /* ── TRANSCRIPT REVIEW ── */
+    .transcript-box {
+      min-height: 120px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 10px;
+      font-size: 15px;
+      line-height: 1.75;
+      white-space: pre-wrap;
+    }
+    .word-count { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 6px; }
+
+    /* ── MINUTES TEXTAREA ── */
+    .minutes-ta {
+      width: 100%;
+      min-height: 260px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 15px;
+      line-height: 1.75;
+      resize: vertical;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+    }
+    .minutes-ta:focus { border-color: var(--primary); }
+
+    /* ── FOLDER ITEMS ── */
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border: 1px solid transparent;
+    }
+    .folder-item:hover { background: var(--bg); }
+    .folder-item.selected { background: var(--primary-light); border-color: var(--primary); }
+    .f-icon {
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .f-icon.yellow { background: #FEF9C3; }
+    .f-icon.blue   { background: #DBEAFE; }
+    .f-name { flex: 1; font-size: 15px; font-weight: 500; }
+    .star-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; padding: 4px;
+      transition: transform 0.15s;
+      line-height: 1;
+    }
+    .star-btn:hover { transform: scale(1.2); }
+
+    /* ── SETTINGS ── */
+    .s-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
+    .s-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      color: var(--text);
+    }
+    .s-input:focus { border-color: var(--primary); }
+    .s-section { display: flex; flex-direction: column; gap: 10px; }
+    .s-row { display: flex; align-items: center; justify-content: space-between; }
+
+    /* ── BADGE ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge-ok   { background: #DCFCE7; color: #15803D; }
+    .badge-ng   { background: #FEE2E2; color: #B91C1C; }
+    .badge-warn { background: #FEF9C3; color: #B45309; }
+
+    /* ── MODAL ── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,0.5);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal {
+      background: white;
+      border-radius: 22px 22px 0 0;
+      padding: 20px 18px 32px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 88vh;
+      overflow-y: auto;
+      animation: slide-up 0.28s ease;
+    }
+    @keyframes slide-up {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .modal-handle {
+      width: 34px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 18px;
+    }
+    .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 18px; }
+
+    /* ── STEP GUIDE ── */
+    .steps { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+    .step { display: flex; gap: 10px; align-items: flex-start; }
+    .step-n {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--primary); color: white;
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .step-t { font-size: 13px; line-height: 1.6; color: var(--text); }
+    .step-t a { color: var(--primary); text-decoration: none; }
+    code {
+      background: #F1F5F9; padding: 1px 5px;
+      border-radius: 4px; font-size: 12px;
+    }
+
+    /* ── LOADING ── */
+    .loading-row {
+      display: flex; align-items: center; gap: 10px;
+      justify-content: center; padding: 20px;
+      color: var(--text-muted);
+    }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── BANNER ── */
+    .banner {
+      background: linear-gradient(135deg, #EEF2FF 0%, #E0F2FE 100%);
+      border: 1px solid #C7D2FE;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+    }
+    .banner-icon { font-size: 22px; flex-shrink: 0; }
+    .banner-body { flex: 1; }
+    .banner-title { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+    .banner-desc  { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── DIVIDER ── */
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: #1E293B;
+      color: white;
+      padding: 11px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 500;
+      white-space: nowrap;
+      animation: toast-anim 3s ease forwards;
+    }
+    @keyframes toast-anim {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      75%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ── LANG SELECT ── */
+    .lang-sel {
+      padding: 7px 10px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 13px;
+      background: white; color: var(--text); cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* ── HISTORY ITEM ── */
+    .hist-item {
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s;
+      margin-bottom: 8px;
+    }
+    .hist-item:hover { border-color: var(--primary); }
+    .hist-date { font-size: 12px; color: var(--text-muted); }
+    .hist-preview { font-size: 14px; margin-top: 4px; }
+
+    /* ── HTTPS WARNING ── */
+    #httpsWarn {
+      background: #FEF9C3;
+      border: 1px solid #FDE68A;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #92400E;
+      line-height: 1.5;
+    }
+
+    .hidden { display: none !important; }
+    .screen { display: flex; flex-direction: column; gap: 14px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div class="logo">
+      <svg viewBox="0 0 30 30" fill="none">
+        <circle cx="15" cy="15" r="15" fill="#4F7EF7"/>
+        <rect x="11" y="7" width="8" height="10" rx="4" fill="white"/>
+        <path d="M8 15a7 7 0 0014 0" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="15" y1="22" x2="15" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="11" y1="25" x2="19" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      MeetNote
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openHistory()" title="履歴">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
+      <button class="icon-btn" onclick="openSettings()" title="設定">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div class="content" id="mainContent">
+
+    <!-- ======= HOME SCREEN ======= -->
+    <div id="homeScreen" class="screen">
+
+      <!-- HTTPS warning (shown if needed) -->
+      <div id="httpsWarn" class="hidden">
+        ⚠️ <strong>HTTPSが必要です：</strong> iPhoneのマイク・音声認識はHTTPS環境でのみ動作します。<a href="https://pages.github.com/" target="_blank" style="color:var(--primary)">GitHub Pages</a> などで公開してお使いください。
+      </div>
+
+      <!-- Setup banner -->
+      <div id="setupBanner" class="banner hidden">
+        <div class="banner-icon">⚙️</div>
+        <div class="banner-body">
+          <div class="banner-title">初期設定をしましょう</div>
+          <div class="banner-desc">Claude APIキーとGoogleドライブを設定すると全機能が使えます。</div>
+          <button class="btn btn-primary" style="margin-top:10px;width:auto;padding:8px 16px;font-size:13px;" onclick="openSettings()">設定する →</button>
+        </div>
+      </div>
+
+      <!-- Save destination -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-label">保存先フォルダ（Google Drive）</div>
+          <button class="icon-btn" onclick="openFolderPicker()" title="フォルダを変更">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+        <div id="folderDisplay" onclick="openFolderPicker()" style="cursor:pointer;"></div>
+      </div>
+
+      <!-- Recording -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-label">録音・文字起こし</div>
+          <select class="lang-sel" id="langSel">
+            <option value="ja-JP">🇯🇵 日本語</option>
+            <option value="en-US">🇺🇸 English</option>
+            <option value="zh-CN">🇨🇳 中文</option>
+            <option value="ko-KR">🇰🇷 한국어</option>
+          </select>
+        </div>
+
+        <div class="record-wrap">
+          <button class="record-btn" id="recBtn" onclick="toggleRec()">
+            <div class="record-dot" id="recDot"></div>
+          </button>
+          <div class="record-label" id="recLabel">タップして録音開始</div>
+          <div class="record-timer hidden" id="recTimer">00:00</div>
+        </div>
+
+        <div id="liveWrap" class="hidden">
+          <div class="divider"></div>
+          <div class="card-label">リアルタイム文字起こし</div>
+          <div class="live-box" id="liveBox"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= REVIEW SCREEN ======= -->
+    <div id="reviewScreen" class="screen hidden">
+      <div class="card">
+        <div class="card-label">文字起こし結果</div>
+        <div class="transcript-box" id="transcriptBox"></div>
+        <div class="word-count" id="wordCount"></div>
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn btn-secondary" onclick="goHome()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7l-7 7 7 7"/></svg>
+          やり直す
+        </button>
+        <button class="btn btn-primary" id="genBtn" onclick="generateMinutes()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          議事録を生成
+        </button>
+      </div>
+
+      <div id="genLoader" class="card hidden">
+        <div class="loading-row">
+          <div class="spinner"></div>
+          <span>Claudeが議事録を生成中...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= MINUTES SCREEN ======= -->
+    <div id="minutesScreen" class="screen hidden">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-label">議事録（編集可）</div>
+          <button class="icon-btn" onclick="copyMinutes()" title="コピー">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+        <textarea class="minutes-ta" id="minutesTa" rows="14"></textarea>
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn btn-secondary" onclick="showScreen('review')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7l-7 7 7 7"/></svg>
+          文字起こしへ
+        </button>
+        <button class="btn btn-success" id="saveBtn" onclick="saveToDrive()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          Driveに保存
+        </button>
+      </div>
+
+      <button class="btn btn-secondary" onclick="goHome()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        ホームに戻る
+      </button>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app-shell -->
+
+<!-- ======= SETTINGS MODAL ======= -->
+<div class="overlay hidden" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙️ 設定</div>
+
+    <!-- Claude -->
+    <div class="s-section">
+      <div class="s-row">
+        <div style="font-weight:700;font-size:15px;">Claude API</div>
+        <span id="claudeBadge" class="badge badge-ng">未設定</span>
+      </div>
+      <div class="s-label">APIキー（議事録の自動生成に使用）</div>
+      <input type="password" class="s-input" id="claudeKeyIn" placeholder="sk-ant-api03-...">
+      <div style="font-size:12px;color:var(--text-muted);">
+        取得先: <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--primary);">console.anthropic.com</a>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Google Drive -->
+    <div class="s-section">
+      <div class="s-row">
+        <div style="font-weight:700;font-size:15px;">Google Drive</div>
+        <span id="driveBadge" class="badge badge-ng">未設定</span>
+      </div>
+
+      <details style="font-size:13px;color:var(--text-muted);cursor:pointer;">
+        <summary style="font-weight:600;color:var(--text);">OAuth Client IDの取得方法 ▸</summary>
+        <div class="steps">
+          <div class="step"><div class="step-n">1</div><div class="step-t"><a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> で新規プロジェクトを作成</div></div>
+          <div class="step"><div class="step-n">2</div><div class="step-t">「APIとサービス」→「ライブラリ」→ <code>Google Drive API</code> を有効化</div></div>
+          <div class="step"><div class="step-n">3</div><div class="step-t">「OAuth同意画面」を設定（外部・テスト）、自分のメールをテストユーザーに追加</div></div>
+          <div class="step"><div class="step-n">4</div><div class="step-t">「認証情報」→「OAuthクライアントID作成」→ 種類: <code>ウェブアプリケーション</code></div></div>
+          <div class="step"><div class="step-n">5</div><div class="step-t">「承認済みのJavaScriptオリジン」に <code id="originHint"></code> を追加</div></div>
+          <div class="step"><div class="step-n">6</div><div class="step-t">発行されたクライアントIDを下に貼り付け、「Googleでログイン」をクリック</div></div>
+        </div>
+      </details>
+
+      <div class="s-label">OAuth クライアントID</div>
+      <input type="text" class="s-input" id="clientIdIn" placeholder="xxxxx.apps.googleusercontent.com">
+      <button class="btn btn-secondary" id="driveLoginBtn" onclick="connectDrive()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+        Googleでログイン
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-primary" onclick="saveSettings()">保存して閉じる</button>
+    <button class="btn btn-secondary" style="margin-top:8px;" onclick="closeOverlay('settingsOverlay')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ======= FOLDER MODAL ======= -->
+<div class="overlay hidden" id="folderOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📁 保存先フォルダを選択</div>
+    <div id="folderList"></div>
+    <div class="divider"></div>
+    <button class="btn btn-secondary" onclick="closeOverlay('folderOverlay')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ======= HISTORY MODAL ======= -->
+<div class="overlay hidden" id="histOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🕐 議事録履歴</div>
+    <div id="histList"></div>
+    <div class="divider"></div>
+    <button class="btn btn-secondary" onclick="closeOverlay('histOverlay')">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ==========================================================
+// STATE
+// ==========================================================
+const S = {
+  claudeKey:   localStorage.getItem('claudeKey')   || '',
+  clientId:    localStorage.getItem('clientId')    || '',
+  accessToken: null,
+  folder:      JSON.parse(localStorage.getItem('folder') || 'null'),
+  favs:        JSON.parse(localStorage.getItem('favs')   || '[]'),
+  history:     JSON.parse(localStorage.getItem('history') || '[]'),
+
+  isRec:       false,
+  recSec:      0,
+  timerInt:    null,
+  recognition: null,
+  finalText:   '',
+  interimText: '',
+
+  currentScreen: 'home',
+};
+
+// ==========================================================
+// INIT
+// ==========================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // HTTPS check
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    document.getElementById('httpsWarn').classList.remove('hidden');
+  }
+  document.getElementById('originHint').textContent = location.origin;
+  renderFolderDisplay();
+  maybeShowSetupBanner();
+});
+
+// ==========================================================
+// SCREEN NAVIGATION
+// ==========================================================
+function showScreen(name) {
+  ['home','review','minutes'].forEach(n => {
+    document.getElementById(n + 'Screen').classList.toggle('hidden', n !== name);
+  });
+  S.currentScreen = name;
+}
+
+function goHome() {
+  if (S.isRec) stopRec();
+  S.finalText = ''; S.interimText = '';
+  document.getElementById('liveWrap').classList.add('hidden');
+  document.getElementById('liveBox').innerHTML = '';
+  document.getElementById('recTimer').classList.add('hidden');
+  document.getElementById('recBtn').classList.remove('rec');
+  document.getElementById('recLabel').textContent = 'タップして録音開始';
+  showScreen('home');
+}
+
+function maybeShowSetupBanner() {
+  const needs = !S.claudeKey || !S.accessToken;
+  document.getElementById('setupBanner').classList.toggle('hidden', !needs);
+}
+
+// ==========================================================
+// FOLDER DISPLAY
+// ==========================================================
+function renderFolderDisplay() {
+  const el = document.getElementById('folderDisplay');
+  if (S.folder) {
+    el.innerHTML = `
+      <div class="folder-item selected" style="pointer-events:none;">
+        <div class="f-icon yellow">📁</div>
+        <div>
+          <div class="f-name">${esc(S.folder.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted);">選択中 · タップで変更</div>
+        </div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="folder-item" style="pointer-events:none;color:var(--text-muted);">
+        <div class="f-icon blue">📂</div>
+        <div>
+          <div style="font-weight:500;">フォルダを選択</div>
+          <div style="font-size:12px;">Googleドライブの保存先</div>
+        </div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
+  }
+}
+
+// ==========================================================
+// RECORDING
+// ==========================================================
+function toggleRec() {
+  S.isRec ? stopRec() : startRec();
+}
+
+function startRec() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    toast('⚠️ このブラウザは音声認識に対応していません。Chromeをお使いください。');
+    return;
+  }
+
+  S.finalText = ''; S.interimText = '';
+  S.recSec = 0; S.isRec = true;
+
+  // UI
+  document.getElementById('recBtn').classList.add('rec');
+  document.getElementById('recLabel').textContent = '録音中...（もう一度タップで停止）';
+  document.getElementById('recTimer').classList.remove('hidden');
+  document.getElementById('recTimer').classList.add('rec');
+  document.getElementById('liveWrap').classList.remove('hidden');
+
+  // Timer
+  S.timerInt = setInterval(() => {
+    S.recSec++;
+    const m = String(Math.floor(S.recSec / 60)).padStart(2,'0');
+    const s = String(S.recSec % 60).padStart(2,'0');
+    document.getElementById('recTimer').textContent = `${m}:${s}`;
+  }, 1000);
+
+  // Recognition
+  function makeRec() {
+    const r = new SR();
+    r.lang = document.getElementById('langSel').value;
+    r.continuous = true;
+    r.interimResults = true;
+
+    r.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) S.finalText += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      S.interimText = interim;
+      const box = document.getElementById('liveBox');
+      box.innerHTML = esc(S.finalText) +
+        (interim ? `<span class="interim">${esc(interim)}</span>` : '');
+      box.scrollTop = box.scrollHeight;
+    };
+
+    r.onerror = e => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      console.warn('Speech error:', e.error);
+    };
+
+    // iOS auto-stops recognition — restart if still recording
+    r.onend = () => {
+      if (!S.isRec) return;
+      try { r.start(); }
+      catch(_) {
+        setTimeout(() => {
+          if (S.isRec) { S.recognition = makeRec(); S.recognition.start(); }
+        }, 150);
+      }
+    };
+
+    return r;
+  }
+
+  S.recognition = makeRec();
+  try { S.recognition.start(); }
+  catch(e) {
+    toast('⚠️ マイクへのアクセスを許可してください');
+    stopRec();
+  }
+}
+
+function stopRec() {
+  S.isRec = false;
+  if (S.recognition) {
+    S.recognition.onend = null;
+    try { S.recognition.stop(); } catch(_) {}
+    S.recognition = null;
+  }
+  clearInterval(S.timerInt);
+
+  document.getElementById('recBtn').classList.remove('rec');
+  document.getElementById('recLabel').textContent = 'タップして録音開始';
+  document.getElementById('recTimer').classList.remove('rec');
+
+  const full = (S.finalText + S.interimText).trim();
+  if (!full) { toast('文字起こしが取得できませんでした'); return; }
+
+  S.finalText = full;
+  document.getElementById('transcriptBox').textContent = S.finalText;
+  document.getElementById('wordCount').textContent = `${S.finalText.length} 文字`;
+  showScreen('review');
+}
+
+// ==========================================================
+// GENERATE MINUTES
+// ==========================================================
+async function generateMinutes() {
+  if (!S.claudeKey) {
+    if (confirm('Claude APIキーが未設定です。設定画面を開きますか？')) openSettings();
+    return;
+  }
+
+  document.getElementById('genBtn').disabled = true;
+  document.getElementById('genLoader').classList.remove('hidden');
+
+  const now = new Date();
+  const ds = now.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+
+  const prompt = `以下の会議の文字起こしから、読みやすく構造化された議事録を日本語で作成してください。
+
+【文字起こし】
+${S.finalText}
+
+以下のMarkdownフォーマットで作成してください（必要な項目のみ）:
+
+# 議事録
+
+**日時**: ${ds}
+**参加者**: （文字起こしから判断できる場合に記載）
+**会議形式**: （オンライン/対面/不明）
+
+---
+
+## 議題・背景
+
+## 主な議論内容
+
+## 決定事項・合意点
+
+## アクションアイテム
+
+| # | 内容 | 担当者 | 期限 |
+|---|------|--------|------|
+| 1 |      |        |      |
+
+## 次回について
+
+---
+*MeetNote により自動生成*`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': S.claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 4096,
+        messages: [{ role:'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const minutes = data.content[0].text;
+
+    document.getElementById('minutesTa').value = minutes;
+
+    // Save history
+    saveHistory({ transcript: S.finalText, minutes });
+
+    showScreen('minutes');
+  } catch(e) {
+    toast('エラー: ' + e.message);
+    console.error(e);
+  } finally {
+    document.getElementById('genBtn').disabled = false;
+    document.getElementById('genLoader').classList.add('hidden');
+  }
+}
+
+// ==========================================================
+// GOOGLE DRIVE
+// ==========================================================
+function connectDrive() {
+  const id = document.getElementById('clientIdIn').value.trim() || S.clientId;
+  if (!id) { toast('クライアントIDを入力してください'); return; }
+
+  S.clientId = id;
+  localStorage.setItem('clientId', id);
+
+  if (typeof google === 'undefined' || !google?.accounts) {
+    toast('Google APIが読み込まれていません。数秒後に再試行してください。'); return;
+  }
+
+  const tc = google.accounts.oauth2.initTokenClient({
+    client_id: id,
+    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
+    callback: r => {
+      if (r.error) { toast('認証エラー: ' + r.error); return; }
+      S.accessToken = r.access_token;
+      updateDriveBadge();
+      maybeShowSetupBanner();
+      toast('✅ Googleドライブに接続しました');
+      document.getElementById('driveLoginBtn').innerHTML = '✅ 接続済み（再接続する場合はクリック）';
+    }
+  });
+  tc.requestAccessToken();
+}
+
+async function openFolderPicker() {
+  if (!S.accessToken) {
+    toast('先にGoogleドライブに接続してください（設定 → Googleでログイン）');
+    openSettings(); return;
+  }
+
+  const list = document.getElementById('folderList');
+  list.innerHTML = '<div class="loading-row"><div class="spinner"></div><span>フォルダを読み込み中...</span></div>';
+  document.getElementById('folderOverlay').classList.remove('hidden');
+
+  try {
+    const res = await fetch(
+      "https://www.googleapis.com/drive/v3/files?q=mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&fields=files(id,name)&pageSize=100&orderBy=name",
+      { headers: { Authorization: `Bearer ${S.accessToken}` } }
+    );
+    if (!res.ok) throw new Error('フォルダ取得失敗');
+
+    const data = await res.json();
+    const folders = [
+      { id:'root', name:'マイドライブ（ルート）', isRoot:true },
+      ...(data.files || [])
+    ];
+
+    // Favorites first
+    const favIds = S.favs.map(f => f.id);
+    folders.sort((a,b) => {
+      if (a.isRoot) return -1; if (b.isRoot) return 1;
+      const af = favIds.includes(a.id) ? 0 : 1;
+      const bf = favIds.includes(b.id) ? 0 : 1;
+      return af - bf || a.name.localeCompare(b.name,'ja');
+    });
+
+    list.innerHTML = '';
+    let shownAllHeader = false;
+
+    folders.forEach(f => {
+      const isFav = S.favs.some(x => x.id === f.id);
+      const isSel = S.folder?.id === f.id;
+
+      if (!f.isRoot && !isFav && !shownAllHeader) {
+        const h = document.createElement('div');
+        h.className = 'card-label';
+        h.style.marginTop = '10px';
+        h.textContent = favIds.length ? 'すべてのフォルダ' : 'フォルダ一覧';
+        list.appendChild(h);
+        shownAllHeader = true;
+      }
+
+      if (!f.isRoot && isFav && !document.getElementById('favHeader')) {
+        const h = document.createElement('div');
+        h.id = 'favHeader';
+        h.className = 'card-label';
+        h.textContent = 'お気に入り ⭐';
+        list.insertBefore(h, list.firstChild);
+      }
+
+      const item = document.createElement('div');
+      item.className = 'folder-item' + (isSel ? ' selected' : '');
+      item.innerHTML = `
+        <div class="f-icon ${f.isRoot ? 'blue' : 'yellow'}">${f.isRoot ? '🏠' : '📁'}</div>
+        <div class="f-name">${esc(f.name)}</div>
+        ${!f.isRoot ? `<button class="star-btn" title="${isFav ? 'お気に入り解除' : 'お気に入り登録'}"
+          onclick="toggleFav(event,'${f.id}','${esc(f.name)}')">${isFav ? '⭐' : '☆'}</button>` : ''}
+      `;
+      item.addEventListener('click', e => {
+        if (e.target.closest('.star-btn')) return;
+        selectFolder(f.id, f.name);
+      });
+      list.appendChild(item);
+    });
+
+  } catch(e) {
+    list.innerHTML = `<div style="color:var(--danger);padding:16px;">エラー: ${e.message}</div>`;
+  }
+}
+
+function selectFolder(id, name) {
+  S.folder = { id, name };
+  localStorage.setItem('folder', JSON.stringify(S.folder));
+  renderFolderDisplay();
+  closeOverlay('folderOverlay');
+  toast(`📁 「${name}」を保存先に設定しました`);
+}
+
+function toggleFav(e, id, name) {
+  e.stopPropagation();
+  const idx = S.favs.findIndex(f => f.id === id);
+  if (idx >= 0) { S.favs.splice(idx, 1); toast('お気に入りを解除しました'); }
+  else           { S.favs.push({ id, name }); toast('⭐ お気に入りに追加しました'); }
+  localStorage.setItem('favs', JSON.stringify(S.favs));
+  openFolderPicker(); // refresh
+}
+
+async function saveToDrive() {
+  if (!S.accessToken) {
+    toast('先にGoogleドライブに接続してください'); openSettings(); return;
+  }
+  const text = document.getElementById('minutesTa').value.trim();
+  if (!text) { toast('議事録が空です'); return; }
+
+  const now  = new Date();
+  const ds   = now.toISOString().slice(0,10);
+  const ts   = now.toTimeString().slice(0,5).replace(':','');
+  const name = `議事録_${ds}_${ts}.md`;
+  const fid  = S.folder?.id || 'root';
+
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<div class="spinner" style="width:15px;height:15px;border-width:2px;"></div> 保存中...';
+
+  try {
+    const boundary = 'mn_boundary_' + Date.now();
+    const meta = JSON.stringify({ name, mimeType:'text/plain', parents:[fid] });
+    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${text}\r\n--${boundary}--`;
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${S.accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+      },
+      body
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'アップロード失敗');
+    }
+
+    toast(`✅ 「${name}」をドライブに保存しました`);
+
+    // Update history with flag
+    if (S.history.length > 0) {
+      S.history[0].savedToDrive = true;
+      localStorage.setItem('history', JSON.stringify(S.history));
+    }
+
+  } catch(e) {
+    toast('保存エラー: ' + e.message);
+    console.error(e);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = `
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      Driveに保存`;
+  }
+}
+
+// ==========================================================
+// SETTINGS
+// ==========================================================
+function openSettings() {
+  document.getElementById('claudeKeyIn').value = S.claudeKey;
+  document.getElementById('clientIdIn').value  = S.clientId;
+  document.getElementById('originHint').textContent = location.origin;
+  updateClaudeBadge();
+  updateDriveBadge();
+  document.getElementById('settingsOverlay').classList.remove('hidden');
+}
+
+function saveSettings() {
+  S.claudeKey = document.getElementById('claudeKeyIn').value.trim();
+  const newId = document.getElementById('clientIdIn').value.trim();
+  if (newId !== S.clientId) { S.clientId = newId; S.accessToken = null; }
+  localStorage.setItem('claudeKey', S.claudeKey);
+  localStorage.setItem('clientId',  S.clientId);
+  updateClaudeBadge();
+  updateDriveBadge();
+  maybeShowSetupBanner();
+  closeOverlay('settingsOverlay');
+  toast('設定を保存しました');
+}
+
+function updateClaudeBadge() {
+  const el = document.getElementById('claudeBadge');
+  if (S.claudeKey) { el.className='badge badge-ok'; el.textContent='✓ 設定済み'; }
+  else             { el.className='badge badge-ng'; el.textContent='未設定'; }
+}
+
+function updateDriveBadge() {
+  const el = document.getElementById('driveBadge');
+  if (S.accessToken)   { el.className='badge badge-ok';   el.textContent='✓ 接続済み'; }
+  else if (S.clientId) { el.className='badge badge-warn'; el.textContent='要ログイン'; }
+  else                 { el.className='badge badge-ng';   el.textContent='未設定'; }
+}
+
+// ==========================================================
+// HISTORY
+// ==========================================================
+function saveHistory({ transcript, minutes }) {
+  const entry = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    preview: transcript.slice(0, 60) + (transcript.length > 60 ? '…' : ''),
+    transcript,
+    minutes,
+    folder: S.folder?.name || ''
+  };
+  S.history.unshift(entry);
+  if (S.history.length > 30) S.history.pop();
+  localStorage.setItem('history', JSON.stringify(S.history));
+}
+
+function openHistory() {
+  const list = document.getElementById('histList');
+  if (S.history.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;">まだ履歴がありません</div>';
+  } else {
+    list.innerHTML = S.history.map(h => `
+      <div class="hist-item" onclick="loadHistory('${h.id}')">
+        <div class="hist-date">${new Date(h.date).toLocaleString('ja-JP')} ${h.folder ? '· ' + esc(h.folder) : ''} ${h.savedToDrive ? '☁️' : ''}</div>
+        <div class="hist-preview">${esc(h.preview)}</div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('histOverlay').classList.remove('hidden');
+}
+
+function loadHistory(id) {
+  const h = S.history.find(x => x.id == id);
+  if (!h) return;
+  S.finalText = h.transcript;
+  document.getElementById('minutesTa').value = h.minutes;
+  closeOverlay('histOverlay');
+  showScreen('minutes');
+}
+
+// ==========================================================
+// COPY
+// ==========================================================
+function copyMinutes() {
+  navigator.clipboard.writeText(document.getElementById('minutesTa').value)
+    .then(() => toast('議事録をコピーしました'));
+}
+
+// ==========================================================
+// OVERLAY UTILS
+// ==========================================================
+function closeOverlay(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) closeOverlay(o.id); });
+});
+
+// ==========================================================
+// TOAST
+// ==========================================================
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ==========================================================
+// HELPERS
+// ==========================================================
+function esc(str = '') {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
